@@ -4,7 +4,7 @@ use ::rhai::Engine;
 use rosu_v2::{Osu, prelude::UserExtended};
 use tokio::task::spawn_blocking;
 
-use crate::rhai::osu::register_osu;
+use crate::rhai::{osu::register_osu, register_helpers};
 
 mod discord;
 mod rhai;
@@ -40,15 +40,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut engine = Engine::new();
 
     register_osu(&mut engine);
+    register_helpers(&mut engine);
 
-    engine
-        .run(
-            r#"
-                let rank = rankings();
-                rank.sort(|lhs, rhs| rhs.peak - lhs.peak);
-                rank.for_each(|idx| print(`${idx} | ${this.name} is rank ${this.rank}`));
-            "#,
-        )
-        .unwrap();
+    let test = r#"
+    rankings().extract(1..=10).map(|| top(this.name, 10)).map(|v| v.reduce|sum| sum + this.pp, 0).for_each(|| print(`{this}`))
+    "#;
+    let mut res = Ok(());
+    while res.is_ok() {
+        let stdin = std::io::stdin();
+        res = engine.run(&stdin.lines().next().unwrap().unwrap());
+    }
+    println!("{res:?}");
     Ok(())
 }
